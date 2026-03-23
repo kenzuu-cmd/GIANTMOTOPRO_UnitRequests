@@ -30,6 +30,7 @@
 // ============================================
 const SHEET_ORDERS = "ORDERS";
 const SHEET_REF = "REFERENCE_DATA";
+const RELEASE_TYPE_HEADER = "Release Type";
 const APPROVED_APPLICATION_FORM_LINK_HEADER = "Approved Application Form Link";
 const APPROVED_APPLICATION_FORM_UPLOAD_PATH = "UNIT_REQUEST_UPLOADS/APPROVED_APPLICATION_FORMS";
 
@@ -190,6 +191,8 @@ function submitOrder(data) {
     var clientName = sanitizeInput(data.clientName, 100);
     var contactNumber = sanitizeInput(data.contactNumber, 15);
     var remarks = sanitizeInput(data.remarks, 50).toUpperCase();
+    var releaseTypeRaw = sanitizeInput(data.releaseType, 20);
+    var releaseType = normalizeReleaseType_(releaseTypeRaw);
     
     // ===== VALIDATION: Verify sanitized data not empty =====
     if (!branch || !model || !color || !email) {
@@ -204,12 +207,16 @@ function submitOrder(data) {
       if (isNaN(qty) || qty < 1 || qty > 100) {
         throw new Error("Quantity must be between 1 and 100 for display orders.");
       }
+      releaseType = "";
     } else if (remarks === "FOR RELEASE") {
       if (!clientName || clientName.length < 2) {
         throw new Error("Valid client name is required for release orders.");
       }
       if (!contactNumber || contactNumber.length < 7) {
         throw new Error("Valid contact number is required for release orders.");
+      }
+      if (releaseType !== "Cash" && releaseType !== "Financing") {
+        throw new Error("Release Type is required for release orders.");
       }
       qty = 1;
     } else {
@@ -235,14 +242,16 @@ function submitOrder(data) {
     }
 
     var approvedApplicationFormLink = "";
-    if (remarks === "FOR RELEASE") {
+    if (remarks === "FOR RELEASE" && releaseType === "Financing") {
       validateApprovedApplicationFormPayload_(data.approvedApplicationForm);
       var uploadedFile = saveApprovedApplicationForm_(refNo, branch, data.approvedApplicationForm);
       approvedApplicationFormLink = uploadedFile.url;
     }
 
+    var releaseTypeColumnInfo = ensureOrdersHeaderColumn_(sh, RELEASE_TYPE_HEADER);
     var approvedLinkColumnInfo = ensureOrdersHeaderColumn_(sh, APPROVED_APPLICATION_FORM_LINK_HEADER);
     var rowLength = Math.max(approvedLinkColumnInfo.headerValues.length, COL.TIME_LOG + 1);
+    rowLength = Math.max(rowLength, releaseTypeColumnInfo.headerValues.length);
     var rowValues = new Array(rowLength).fill("");
 
     rowValues[COL.TIMESTAMP] = new Date();
@@ -258,6 +267,7 @@ function submitOrder(data) {
     rowValues[COL.STATUS] = "PENDING";
     rowValues[COL.CANCELLATION_REMARKS] = "";
     rowValues[COL.TIME_LOG] = "";
+    rowValues[releaseTypeColumnInfo.columnIndex] = releaseType;
     rowValues[approvedLinkColumnInfo.columnIndex] = approvedApplicationFormLink;
     
     // ===== SAVE: Append new order to sheet =====
@@ -319,14 +329,8 @@ function ensureOrdersHeaderColumn_(sheet, headerName) {
     }
   }
 
-  var lastNamedHeaderIndex = -1;
-  for (var j = 0; j < headers.length; j++) {
-    if (String(headers[j]).trim() !== "") {
-      lastNamedHeaderIndex = j;
-    }
-  }
-
-  var targetColumn = lastNamedHeaderIndex + 2; // 1-based column number
+  // Always append at the far right to avoid modifying any existing column mapping.
+  var targetColumn = headerWidth + 1; // 1-based column number
   sheet.getRange(1, targetColumn).setValue(headerName);
 
   if (headers.length < targetColumn) {
@@ -1096,4 +1100,11 @@ function testCheckStatus() {
   var result = checkRequestStatus("REQ-9534C6");
   Logger.log(JSON.stringify(result, null, 2));
   return result;
+}
+
+function normalizeReleaseType_(value) {
+  var normalized = String(value || '').trim().toUpperCase();
+  if (normalized === 'CASH') return 'Cash';
+  if (normalized === 'FINANCING') return 'Financing';
+  return '';
 }
