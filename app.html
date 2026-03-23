@@ -360,6 +360,18 @@
             <option value="FOR RELEASE">For Release</option>
           </select>
         </div>
+
+        <div id="releaseTypeGroup" class="form-group hidden">
+          <label>Release Type <span class="required">*</span></label>
+          <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+            <label style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 0; font-weight: 500;">
+              <input type="radio" name="releaseType" value="cash" style="width: auto; margin: 0;"> Cash
+            </label>
+            <label style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 0; font-weight: 500;">
+              <input type="radio" name="releaseType" value="financing" style="width: auto; margin: 0;"> Financing
+            </label>
+          </div>
+        </div>
         
         <div id="qtyGroup" class="form-group hidden">
           <label for="qty">Quantity (up to 3) <span class="required">*</span></label>
@@ -373,12 +385,14 @@
           <label for="contactNumber" style="margin-top: 15px;">Contact Number <span class="required">*</span></label>
           <input type="tel" id="contactNumber" maxlength="15">
 
-          <label for="approvedApplicationForm" style="margin-top: 15px;">Approved Application Form <span class="required">*</span></label>
-          <input type="file" id="approvedApplicationForm" accept="image/*">
-          <div style="font-size: 12px; color: #666; margin-top: 5px;">Attach a clear photo/scan of the approved application form.</div>
+          <div id="approvedApplicationGroup">
+            <label for="approvedApplicationForm" style="margin-top: 15px;">Approved Application Form <span class="required">*</span></label>
+            <input type="file" id="approvedApplicationForm" accept="image/*">
+            <div style="font-size: 12px; color: #666; margin-top: 5px;">Attach a clear photo/scan of the approved application form.</div>
+          </div>
         </div>
-        
-        <div class="form-group">
+
+        <div id="emailGroup" class="form-group">
           <label for="email">Email Address <span class="required">*</span></label>
           <input type="email" id="email" required maxlength="100">
         </div>
@@ -490,12 +504,16 @@
       model: document.getElementById('model'),
       color: document.getElementById('color'),
       remarks: document.getElementById('remarks'),
+      releaseTypeGroup: document.getElementById('releaseTypeGroup'),
+      releaseTypeRadios: document.querySelectorAll('input[name="releaseType"]'),
       qty: document.getElementById('qty'),
       qtyGroup: document.getElementById('qtyGroup'),
       clientSection: document.getElementById('clientSection'),
       clientName: document.getElementById('clientName'),
       contactNumber: document.getElementById('contactNumber'),
+      approvedApplicationGroup: document.getElementById('approvedApplicationGroup'),
       approvedApplicationForm: document.getElementById('approvedApplicationForm'),
+      emailGroup: document.getElementById('emailGroup'),
       email: document.getElementById('email'),
       submitBtn: document.getElementById('submitBtn'),
       newRequestBtn: document.getElementById('newRequestBtn'),
@@ -549,24 +567,11 @@
       });
       
       this.elements.remarks.addEventListener('change', function() {
-        const val = this.value;
-        if (val === 'FOR DISPLAY') {
-          self.elements.qtyGroup.classList.remove('hidden');
-          self.elements.qty.disabled = false;
-          self.elements.clientSection.classList.add('hidden');
-          self.elements.clientName.removeAttribute('required');
-          self.elements.contactNumber.removeAttribute('required');
-          self.elements.approvedApplicationForm.removeAttribute('required');
-          self.elements.approvedApplicationForm.value = '';
-        } else if (val === 'FOR RELEASE') {
-          self.elements.qtyGroup.classList.add('hidden');
-          self.elements.qty.value = 1;
-          self.elements.qty.disabled = true;
-          self.elements.clientSection.classList.remove('hidden');
-          self.elements.clientName.setAttribute('required', '');
-          self.elements.contactNumber.setAttribute('required', '');
-          self.elements.approvedApplicationForm.setAttribute('required', '');
-        }
+        self.updatePurposeState(this.value);
+      });
+
+      this.elements.releaseTypeRadios.forEach(radio => {
+        radio.addEventListener('change', () => this.updateReleaseTypeState());
       });
       
       this.elements.form.addEventListener('submit', e => {
@@ -575,6 +580,130 @@
       });
       
       this.elements.newRequestBtn.addEventListener('click', () => this.resetForm());
+    },
+
+    getSelectedReleaseType: function() {
+      const selected = document.querySelector('input[name="releaseType"]:checked');
+      return selected ? selected.value : '';
+    },
+
+    clearReleaseTypeSelection: function() {
+      this.elements.releaseTypeRadios.forEach(radio => {
+        radio.checked = false;
+      });
+    },
+
+    updatePurposeState: function(purpose) {
+      if (purpose === 'FOR_DISPLAY') {
+        // Defensive branch in case purpose values are normalized differently.
+        purpose = 'FOR DISPLAY';
+      }
+
+      if (purpose === 'FOR DISPLAY') {
+        this.elements.qtyGroup.classList.remove('hidden');
+        this.elements.qty.disabled = false;
+
+        this.elements.releaseTypeGroup.classList.add('hidden');
+        this.clearReleaseTypeSelection();
+
+        this.elements.clientSection.classList.add('hidden');
+        this.elements.clientName.removeAttribute('required');
+        this.elements.contactNumber.removeAttribute('required');
+
+        this.elements.approvedApplicationGroup.classList.add('hidden');
+        this.elements.approvedApplicationForm.removeAttribute('required');
+        this.elements.approvedApplicationForm.value = '';
+
+        this.elements.emailGroup.classList.remove('hidden');
+        this.elements.email.setAttribute('required', '');
+      } else if (purpose === 'FOR RELEASE') {
+        this.elements.qtyGroup.classList.add('hidden');
+        this.elements.qty.value = 1;
+        this.elements.qty.disabled = true;
+
+        this.elements.releaseTypeGroup.classList.remove('hidden');
+        this.elements.clientSection.classList.add('hidden');
+        this.elements.clientName.removeAttribute('required');
+        this.elements.contactNumber.removeAttribute('required');
+
+        this.elements.approvedApplicationGroup.classList.add('hidden');
+        this.elements.approvedApplicationForm.removeAttribute('required');
+        this.elements.approvedApplicationForm.value = '';
+
+        this.elements.emailGroup.classList.add('hidden');
+        this.elements.email.removeAttribute('required');
+
+        this.updateReleaseTypeState();
+      } else {
+        this.elements.qtyGroup.classList.add('hidden');
+        this.elements.qty.value = 1;
+        this.elements.qty.disabled = true;
+
+        this.elements.releaseTypeGroup.classList.add('hidden');
+        this.clearReleaseTypeSelection();
+
+        this.elements.clientSection.classList.add('hidden');
+        this.elements.clientName.removeAttribute('required');
+        this.elements.contactNumber.removeAttribute('required');
+
+        this.elements.approvedApplicationGroup.classList.add('hidden');
+        this.elements.approvedApplicationForm.removeAttribute('required');
+        this.elements.approvedApplicationForm.value = '';
+
+        this.elements.emailGroup.classList.remove('hidden');
+        this.elements.email.setAttribute('required', '');
+      }
+    },
+
+    updateReleaseTypeState: function() {
+      const purpose = this.elements.remarks.value;
+      const releaseType = this.getSelectedReleaseType();
+      const isFinancing = purpose === 'FOR RELEASE' && releaseType === 'financing';
+      const hasReleaseType = purpose === 'FOR RELEASE' && !!releaseType;
+
+      if (purpose !== 'FOR RELEASE') {
+        this.elements.clientSection.classList.add('hidden');
+        this.elements.clientName.removeAttribute('required');
+        this.elements.contactNumber.removeAttribute('required');
+
+        this.elements.approvedApplicationGroup.classList.add('hidden');
+        this.elements.approvedApplicationForm.removeAttribute('required');
+        this.elements.approvedApplicationForm.value = '';
+
+        this.elements.emailGroup.classList.remove('hidden');
+        this.elements.email.setAttribute('required', '');
+        return;
+      }
+
+      if (!hasReleaseType) {
+        this.elements.clientSection.classList.add('hidden');
+        this.elements.clientName.removeAttribute('required');
+        this.elements.contactNumber.removeAttribute('required');
+
+        this.elements.approvedApplicationGroup.classList.add('hidden');
+        this.elements.approvedApplicationForm.removeAttribute('required');
+        this.elements.approvedApplicationForm.value = '';
+
+        this.elements.emailGroup.classList.add('hidden');
+        this.elements.email.removeAttribute('required');
+        return;
+      }
+
+      this.elements.clientSection.classList.remove('hidden');
+      this.elements.clientName.setAttribute('required', '');
+      this.elements.contactNumber.setAttribute('required', '');
+
+      this.elements.emailGroup.classList.remove('hidden');
+      this.elements.email.setAttribute('required', '');
+
+      if (isFinancing) {
+        this.elements.approvedApplicationGroup.classList.remove('hidden');
+        this.elements.approvedApplicationForm.setAttribute('required', '');
+      } else {
+        this.elements.approvedApplicationGroup.classList.add('hidden');
+        this.elements.approvedApplicationForm.removeAttribute('required');
+        this.elements.approvedApplicationForm.value = '';
+      }
     },
     
     submitForm: function() {
@@ -588,6 +717,7 @@
         model: this.elements.model.value.trim(),
         color: this.elements.color.value.trim(),
         remarks: this.elements.remarks.value.trim(),
+        releaseType: this.getSelectedReleaseType(),
         qty: this.elements.qty.value,
         clientName: this.elements.clientName.value.trim(),
         contactNumber: this.elements.contactNumber.value.trim(),
@@ -595,8 +725,13 @@
       };
 
       if (data.remarks === 'FOR RELEASE') {
+        if (!data.releaseType) {
+          this.showError('Please select a Release Type.');
+          return;
+        }
+
         const files = this.elements.approvedApplicationForm.files;
-        if (!files || files.length !== 1) {
+        if (data.releaseType === 'financing' && (!files || files.length !== 1)) {
           this.showError('Approved Application Form image is required for release orders.');
           return;
         }
@@ -606,7 +741,7 @@
       this.elements.loadingBox.classList.remove('hidden');
       this.elements.submitBtn.disabled = true;
 
-      if (data.remarks === 'FOR RELEASE') {
+      if (data.remarks === 'FOR RELEASE' && data.releaseType === 'financing') {
         const file = this.elements.approvedApplicationForm.files[0];
         this.convertFileToDataUri(file, dataUri => {
           data.approvedApplicationForm = {
@@ -678,11 +813,16 @@
       this.elements.qty.value = 1;
       this.elements.qty.disabled = true;
       this.elements.qtyGroup.classList.add('hidden');
+      this.elements.releaseTypeGroup.classList.add('hidden');
+      this.clearReleaseTypeSelection();
       this.elements.clientSection.classList.add('hidden');
       this.elements.clientName.removeAttribute('required');
       this.elements.contactNumber.removeAttribute('required');
+      this.elements.approvedApplicationGroup.classList.add('hidden');
       this.elements.approvedApplicationForm.removeAttribute('required');
       this.elements.approvedApplicationForm.value = '';
+      this.elements.emailGroup.classList.remove('hidden');
+      this.elements.email.setAttribute('required', '');
       this.hideMessages();
       this.elements.form.classList.remove('hidden');
       this.elements.newRequestBtn.classList.add('hidden');
